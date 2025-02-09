@@ -28,7 +28,8 @@ class PrioritizedPlanningSolver(object):
 
         start_time = timer.time()
         result = []
-        constraints = [{'agent': 0, 'loc': [(1,5)], 'timestep': 4}, {'agent': 1, 'loc': [(1,2),(1,3)], 'timestep': 1}]
+        # constraints = [{'agent': 0, 'loc': [(1,5)], 'timestep': 4}, {'agent': 1, 'loc': [(1,2),(1,3)], 'timestep': 1}]
+        constraints = []
 
         for i in range(self.num_of_agents):  # Find path for each agent
             path = a_star(self.my_map, self.starts[i], self.goals[i], self.heuristics[i],
@@ -47,6 +48,24 @@ class PrioritizedPlanningSolver(object):
             #            * constraints: array of constraints to consider for future A* searches
 
             ##############################
+            # vertex constraints
+            
+            for timestep, loc in enumerate(path):
+                print(f"{loc} of agent {i} is a vertex constraint at t {timestep}")
+
+                # TODO add this as a constraint for all the other agents
+                for agent in range(i + 1, self.num_of_agents):
+                    print(f"adding agent {i}'s path as a vertex constraint to agent {agent}")
+                    constraints.append({'agent': agent, 'loc': [loc], 'timestep': timestep})
+
+            
+            # edge constraints
+            for timestep in range(len(path) - 1):
+                # TODO
+                for agent in range(i + 1, self.num_of_agents):
+                    print(f"adding agent {i}'s {[path[timestep + 1], path[timestep]]} as an edge constraint to agent {agent}")
+                    constraints.append({'agent': agent, 'loc': [path[timestep + 1], path[timestep]], 'timestep': timestep + 1})
+
 
         self.CPU_time = timer.time() - start_time
 
