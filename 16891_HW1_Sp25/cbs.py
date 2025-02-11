@@ -2,7 +2,7 @@ import time as timer
 import heapq
 import random
 from single_agent_planner import compute_heuristics, a_star, get_location, get_sum_of_cost
-
+import copy
 
 def detect_first_collision_for_path_pair(path1, path2):
     ##############################
@@ -12,8 +12,27 @@ def detect_first_collision_for_path_pair(path1, path2):
     #           An edge collision occurs if the robots swap their location at the same timestep.
     #           You should use "get_location(path, t)" to get the location of a robot at time t.
 
-    pass
+    # find the path with minimum length
+    timesteps =  max(len(path1), len(path2))
+    for t in range(timesteps):
+        p1_loc = get_location(path1, t)
+        p2_loc = get_location(path2, t)
+        # print(f"p1_loc is: {p1_loc}, p2_loc is: {p2_loc}")
 
+        # vertex collision
+        if p1_loc == p2_loc:
+            # print(f"{p1_loc} and {p2_loc} are same")
+            return {'a1': 0, 'a2': 1, 'loc': [p1_loc], 'timestep': t}
+
+        # edge collision
+        if t + 1 < timesteps:
+            p1_loc_next = get_location(path1, t+1)
+            p2_loc_next = get_location(path2, t+1)
+            if [p1_loc, p1_loc_next] == [p2_loc_next, p2_loc]:
+                return {'a1': 0, 'a2': 1, 'loc': [p1_loc, p1_loc_next], 'timestep': t}
+    
+    return None
+            
 
 def detect_collisions_among_all_paths(paths):
     ##############################
@@ -22,7 +41,20 @@ def detect_collisions_among_all_paths(paths):
     #           causing the collision, and the timestep at which the collision occurred.
     #           You should use your detect_collision function to find a collision between two robots.
 
-    pass
+    collisions = []
+
+    for i in range(len(paths)):
+        for j in range(i+1, len(paths)):
+            print(f"finding collision for agents {i} and {j}")
+            print(f"Path for agent 1: {paths[i]}")
+            print(f"Path for agent 2: {paths[j]}")
+            collision = detect_first_collision_for_path_pair(paths[i], paths[j])
+            if collision:
+                collision['a1'] = i
+                collision['a2'] = j
+                collisions.append(collision)
+    
+    return collisions
 
 
 def standard_splitting(collision):
@@ -35,9 +67,43 @@ def standard_splitting(collision):
     #                          specified timestep, and the second constraint prevents the second agent to traverse the
     #                          specified edge at the specified timestep
 
-    pass
+    constraints = []
 
+    # vertex collision
+    if len(collision['loc']) == 1:
+        constraints.append({
+            'agent': collision['a1'],
+            'loc': [collision['loc'][0]],
+            'timestep': collision['timestep']
+        })
 
+        constraints.append({
+            'agent': collision['a2'],
+            'loc': [collision['loc'][0]],
+            'timestep': collision['timestep']
+        })
+
+    # edge collision
+    if len(collision['loc']) == 2:
+
+        loc1 = collision['loc'][0]
+        loc2 = collision['loc'][1]
+
+        constraints.append({
+            'agent': collision['a1'],
+            'loc': [loc1, loc2],
+            'timestep': collision['timestep']
+        })
+
+        constraints.append({
+            'agent': collision['a2'],
+            'loc': [loc2, loc1],
+            'timestep': collision['timestep']
+        })
+
+    return constraints
+
+    
 class CBSSolver(object):
     """The high-level search of CBS."""
 
@@ -97,12 +163,12 @@ class CBSSolver(object):
                 raise BaseException('No solutions')
             root['paths'].append(path)
 
-        root['cost'] = get_sum_of_cost(root['paths'])
-        root['collisions'] = detect_collisions_among_all_paths(root['paths'])
-        self.push_node(root)
+        root['cost'] = get_sum_of_cost(root['paths']) # line 4
+        root['collisions'] = detect_collisions_among_all_paths(root['paths']) # line 3
+        self.push_node(root) # line 5
 
         # Task 2.1: Testing
-        print(root['collisions'])
+        print(f"root['collisions']: {root['collisions']}")
 
         # Task 2.2: Testing
         for collision in root['collisions']:
@@ -118,8 +184,41 @@ class CBSSolver(object):
         #           Ensure to create a copy of any objects that your child nodes might inherit
 
         # These are just to print debug output - can be modified once you implement the high-level search
-        self.print_results(root)
-        return root['paths']
+
+        while len(self.open_list) > 0:
+            node_p = self.pop_node()
+            if len(node_p['collisions']) == 0:
+                print("no collisions found, therefore goal node")
+                self.print_results(node_p)
+                return node_p['paths']
+            
+            # pick one collision from collisions
+            collision_ = node_p['collisions'][0]
+            # convert it into constraints
+            constraints_ = standard_splitting(collision_)
+            # Add a new child node to your open list for each constraint (total = 2)
+            for constraint in constraints_:
+                # create a copy of node p
+                node_q = copy.deepcopy(node_p)
+                # append the new constraints to the new node
+                node_q['constraints'].append(constraint)
+
+                # the agent in constraint
+                a_i = constraint['agent']
+                # replan the path
+                path_ = a_star(self.my_map, self.starts[a_i], self.goals[a_i], self.heuristics[a_i],
+                          a_i, node_q['constraints'])
+                if path_ is not None:
+                    # replace the path od agent a_i in node_q's plan by path
+                    node_q['paths'][a_i] = path_
+                    node_q['cost'] = get_sum_of_cost(node_q['paths'])
+                    node_q['collisions'] = detect_collisions_among_all_paths(node_q['paths'])
+                    self.push_node(node_q)
+        
+        print("No solution found")
+        return None
+
+
 
     def print_results(self, node):
         print("\n Found a solution! \n")

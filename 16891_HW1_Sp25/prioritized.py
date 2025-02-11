@@ -23,6 +23,8 @@ class PrioritizedPlanningSolver(object):
         for goal in self.goals:
             self.heuristics.append(compute_heuristics(my_map, goal))
 
+        self.time_horizon = sum(cell is False for row in self.my_map for cell in row)
+
     def find_solution(self):
         """ Finds paths for all agents from their start locations to their goal locations."""
 
@@ -31,14 +33,20 @@ class PrioritizedPlanningSolver(object):
         # constraints = [{'agent': 0, 'loc': [(1,5)], 'timestep': 4}, {'agent': 1, 'loc': [(1,2),(1,3)], 'timestep': 1}]
         constraints = []
 
+        
+
         for i in range(self.num_of_agents):  # Find path for each agent
             path = a_star(self.my_map, self.starts[i], self.goals[i], self.heuristics[i],
                           i, constraints)
             if path is None:
                 raise BaseException('No solutions')
-            result.append(path)
+            
+            if len(path) > (self.time_horizon*2):
+                print("no solution exists")
+                raise BaseException('No solutions')
+                # return None
 
-            print(f"path for agent {i}: {path}")
+            result.append(path)
 
             ##############################
             # Task 1.3/1.4/2: Add constraints here
@@ -48,22 +56,24 @@ class PrioritizedPlanningSolver(object):
             #            * constraints: array of constraints to consider for future A* searches
 
             ##############################
-            # vertex constraints
-            
-            for timestep, loc in enumerate(path):
-                print(f"{loc} of agent {i} is a vertex constraint at t {timestep}")
 
-                # TODO add this as a constraint for all the other agents
+            # addition constraints for lower priority agent
+
+            # timestep at goal for higher priority agent
+            goal_t = len(path)-1
+
+            # vertex constraints
+            for timestep, loc in enumerate(path):
                 for agent in range(i + 1, self.num_of_agents):
-                    print(f"adding agent {i}'s path as a vertex constraint to agent {agent}")
                     constraints.append({'agent': agent, 'loc': [loc], 'timestep': timestep})
+
+                    for t in range(goal_t, self.time_horizon*2):
+                        constraints.append({'agent': agent, 'loc': [self.goals[i]], 'timestep': t})
 
             
             # edge constraints
             for timestep in range(len(path) - 1):
-                # TODO
                 for agent in range(i + 1, self.num_of_agents):
-                    print(f"adding agent {i}'s {[path[timestep + 1], path[timestep]]} as an edge constraint to agent {agent}")
                     constraints.append({'agent': agent, 'loc': [path[timestep + 1], path[timestep]], 'timestep': timestep + 1})
 
 

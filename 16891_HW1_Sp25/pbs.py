@@ -13,6 +13,10 @@ def generate_priority_pairs(collision):
 
     ##############################
     # TODO Task 4.1: Generate list of priority pairs based on the given collision
+    a1 = collision['a1']
+    a2 = collision['a2']
+    priority_pairs.append(a1,a2)
+    priority_pairs.append(a2,a1)
 
     return priority_pairs
 
@@ -113,6 +117,48 @@ class PBSSolver(object):
 
         # Task 4.2 TODO : Refer to the given psuedocode or the cited paper for more details on what this function does
 
+        # get a list of all higher priority agents
+        a_k = get_higher_priority_agents(node['priority_pairs'], i)
+        paths_higher_priority_agents = a_k['paths']
+
+        # converting paths of all higher priority agents into constraints
+        constraints = []
+        
+        # for this agent
+        for path in range(paths_higher_priority_agents):
+
+            # TODO: SAUDA: how to get higher priority {agent} id
+            
+            # vertex constraints
+            for timestep, loc in enumerate(path):
+                for agent in range(i + 1, self.num_of_agents):
+                    constraints.append({'agent': agent, 'loc': [loc], 'timestep': timestep})
+
+            # edge constraints
+            for timestep, loc in enumerate(path):
+                for agent in range(i + 1, self.num_of_agents):
+                    constraints,append({'agent': agent, 'loc': [path[timestep + 1], path[timestpe]], 'timestep': timestep + 1})
+
+
+
+        # get a list of all lower priority agents
+        a_j = get_lower_priority_agents(node['priority_pairs'], i)
+
+        # for all lower priority agents
+        for j, node_j in enumerate(a_j):
+            # check if this agent collides with any higher priority agent
+            if collide_with_higher_priority_agents(node, j):
+                # replan the lower priority agent path
+                path_j = node_j['paths']
+                start_loc = get_location(path_j, 0)
+                goal_loc = get_location(path_j, len(path_j)-1)
+
+                path = a_star(self.my_map, start_loc, goal_loc, self.heuristics[j],
+                          j, constraints)
+
+                if path in None:
+                    return False
+
         return True
 
     def find_solution(self):
@@ -133,13 +179,27 @@ class PBSSolver(object):
         # Task 4.2: Initialize the root node dict, what will be the initial priority pairs for standard PBS?
         #
         # TODO      
-        root = None
+        root = {'priority_pairs': [],
+                'paths': [],
+                'collisions': [],
+                'cost': 0}
 
         ##############################
         # Task 4.2: Find initial path for each agent
-        #   
+        #  there is not priority ordering here. Therefore always returns true
         for i in range(self.num_of_agents):
             self.update_plan(root, i)
+
+
+
+
+
+
+
+
+
+
+
 
         root['cost'] = get_sum_of_cost(root['paths'])
         root['collisions'] = detect_collisions_among_all_paths(root['paths'])

@@ -147,12 +147,12 @@ def is_constrained(curr_loc, next_loc, next_time, constraint_table):
     for constraint in constraint_table[next_time]:
         # vertex constraint - check if this agent is not allowed to be at this vertex at this time step
         if len(constraint['loc']) == 1 and constraint['loc'][0] == next_loc:
-            print("Vertex Constraint found: ", constraint)
+            # print("Vertex Constraint found: ", constraint)
             return True
 
         # edge constraint
         if len(constraint['loc']) == 2 and constraint['loc'] == [curr_loc, next_loc]: # because we added a opposite constraint
-            print("Edge Constraint found: ", constraint)
+            # print("Edge Constraint found: ", constraint)
             return True
 
     return False
@@ -186,6 +186,21 @@ def all_in_map(map, locs):
     return True
 
 
+def future_constrained(goal_loc, curr_time, constraint_table):
+    # Case 1: check if this location for this lower priority agent is in the constraint table in the future timestep
+
+    # find the max timestep from the constraint table of this agent
+    max_t = len(constraint_table)
+    for t in range(curr_time, max_t):
+        # for all constraints at this time step
+        for constraint in constraint_table[t]:
+            if goal_loc == constraint['loc'][0]:
+                print("Continue searching the path")
+                return True
+    
+    return False
+
+
 def a_star(my_map, start_loc, goal_loc, h_values, agent, constraints):
     """ my_map      - binary obstacle map
         start_loc   - start position
@@ -203,10 +218,8 @@ def a_star(my_map, start_loc, goal_loc, h_values, agent, constraints):
     closed_list = dict()
     earliest_goal_timestep = 0
     h_value = h_values[start_loc]
-
     # building the constraint table for this agent
     constraint_table = build_constraint_table(constraints, agent)
-    print(f"constraint table for {agent}: {constraint_table}")
 
     root = {'loc': start_loc, 'g_val': 0, 'h_val': h_value, 'parent': None, 'timestep': 0}
     push_node(open_list, root)
@@ -216,43 +229,11 @@ def a_star(my_map, start_loc, goal_loc, h_values, agent, constraints):
         #############################
         # Task 2.2: Adjust the goal test condition to handle goal constraints
         # TODO 
-        if curr['loc'] == goal_loc and curr['timestep'] >= earliest_goal_timestep:
-            
-            # calculating upperbound by taking path lenth and the size of the environment
-            path_length = len(get_path(curr))
-            env_size = len(my_map[goal_loc[0]][goal_loc[1]:])
-            upper_bound = path_length + (env_size - 1)
-            print(f"The upper bound to put on the lower priority agents is: {upper_bound}")
-            print("Add the current goal location of higher priority agent as a constraint for the lower priority agent")
-            for i in range(curr['timestep'], upper_bound):
-                constraints.append({'agent': agent + 1, 'loc': [goal_loc], 'timestep': i})
-            constraint_table = build_constraint_table(constraints, agent)
-            
-            # check if this location is in the constraint table in the future timestep
-            # find the max timestep from the constraint table of this agent
-            max_t = max(constraint_table.keys()) if constraint_table else curr['timestep']
-            # iterate from the current timestep to max including the current timestep
-            for t in range(curr['timestep'], max_t + 1):
-                if is_constrained(None, curr['loc'], t, constraint_table):
-                    print("continue searching the path")
-                    constraints.append({'agent': agent, 'loc': [curr['loc']], 'timestep': curr['timestep']})
-                    constraint_table = build_constraint_table(constraints, agent)
-                    break
-            
-        
-            # if current goal location is not in the constraint table then return the path
-            if not is_constrained(None, curr['loc'], curr['timestep'], constraint_table):
-                path_ = get_path(curr)
+        if curr['loc'] == goal_loc and curr['timestep'] >= earliest_goal_timestep and not future_constrained(goal_loc, curr['timestep'], constraint_table):
 
-                # terminating search if lower priority agent still cannot find a path after the above two steps
-                # this is done by iterating through the path and checking if this location is in the constraint table
-                for t_, loc_ in enumerate(path_):
-                    next_loc_ = get_location(path_, t_+1)
-                    if is_constrained(loc_, next_loc_, t_, constraint_table):
-                        print("No solution")
-                        return None
-                else:
-                    return(path_)
+            path_ = get_path(curr)
+        
+            return path_
 
 
         for dir in range(5):
@@ -278,7 +259,7 @@ def a_star(my_map, start_loc, goal_loc, h_values, agent, constraints):
             else:
                 closed_list[key] = child
                 push_node(open_list, child)
-
+        
     return None  # Failed to find solutions
 
 
