@@ -30,7 +30,7 @@ class PrioritizedPlanningSolver(object):
 
         start_time = timer.time()
         result = []
-        # constraints = [{'agent': 0, 'loc': [(1,5)], 'timestep': 4}, {'agent': 1, 'loc': [(1,2),(1,3)], 'timestep': 1}]
+        # constraints = [{'agent': 1, 'loc': [(1,2),(1,3)], 'timestep': 1}]
         constraints = []
 
         
@@ -44,7 +44,6 @@ class PrioritizedPlanningSolver(object):
             if len(path) > (self.time_horizon*2):
                 print("no solution exists")
                 raise BaseException('No solutions')
-                # return None
 
             result.append(path)
 
@@ -57,8 +56,6 @@ class PrioritizedPlanningSolver(object):
 
             ##############################
 
-            # addition constraints for lower priority agent
-
             # timestep at goal for higher priority agent
             goal_t = len(path)-1
 
@@ -67,9 +64,9 @@ class PrioritizedPlanningSolver(object):
                 for agent in range(i + 1, self.num_of_agents):
                     constraints.append({'agent': agent, 'loc': [loc], 'timestep': timestep})
 
+                    # addition constraints for lower priority agents for when higher priority agents have their goals in the way of lower priority agents
                     for t in range(goal_t, self.time_horizon*2):
                         constraints.append({'agent': agent, 'loc': [self.goals[i]], 'timestep': t})
-
             
             # edge constraints
             for timestep in range(len(path) - 1):

@@ -15,8 +15,8 @@ def generate_priority_pairs(collision):
     # TODO Task 4.1: Generate list of priority pairs based on the given collision
     a1 = collision['a1']
     a2 = collision['a2']
-    priority_pairs.append(a1,a2)
-    priority_pairs.append(a2,a1)
+    priority_pairs.append((a1,a2))
+    priority_pairs.append((a2,a1))
 
     return priority_pairs
 
@@ -88,6 +88,7 @@ class PBSSolver(object):
         self.num_of_expanded = 0
         self.CPU_time = 0
         self.search_stack = deque()
+        self.time_horizon = sum(cell is False for row in self.my_map for cell in row)
 
         # compute heuristics for the low-level search
         self.heuristics = []
@@ -117,49 +118,48 @@ class PBSSolver(object):
 
         # Task 4.2 TODO : Refer to the given psuedocode or the cited paper for more details on what this function does
 
-        # get a list of all higher priority agents
-        a_k = get_higher_priority_agents(node['priority_pairs'], i)
-        paths_higher_priority_agents = a_k['paths']
+        # get a list of all agents whose priority is lower than i
+        lower_priority_a_js = get_lower_priority_agents(node['priority_pairs'], i)
+        higher_priority_a_ks = get_higher_priority_agents(node['priority_pairs'], i)
 
-        # converting paths of all higher priority agents into constraints
+        if i in higher_priority_a_ks:
+            higher_priority_a_ks.remove(i)
+
+        # convert paths of these agents into constraints for a_j
         constraints = []
-        
-        # for this agent
-        for path in range(paths_higher_priority_agents):
+        # loop through all the higher priority agents
+        for a_k in higher_priority_a_ks:
+            # get path for this agent
+            path_a_k = node['paths'][a_k]
 
-            # TODO: SAUDA: how to get higher priority {agent} id
+            for a_j in lower_priority_a_js:
+                # vertex and edge constraints
+               for timestep in range(len(path_a_k) - 1):
+                    constraints.append({'agent': a_j, 'loc': [path_a_k[timestep]], 'timestep': timestep})
+                    constraints.append({'agent': a_j, 'loc': [path_a_k[timestep + 1], path_a_k[timestep]], 'timestep': timestep + 1})
+                # TODO
+                # add additional constraints
+                    
+        # Line 23: for each lower priority agent
+        for a_j in lower_priority_a_js:
             
-            # vertex constraints
-            for timestep, loc in enumerate(path):
-                for agent in range(i + 1, self.num_of_agents):
-                    constraints.append({'agent': agent, 'loc': [loc], 'timestep': timestep})
+            # Lines 24-25: check if this lower priority agent collides with any higher priority agent
+            if a_j==i or collide_with_higher_priority_agents(node, a_j):
+        
+                # call a-star to update a_j's path
+                path = a_star(self.my_map, self.starts[a_j], self.goals[a_j], self.heuristics[a_j], a_j, constraints)
 
-            # edge constraints
-            for timestep, loc in enumerate(path):
-                for agent in range(i + 1, self.num_of_agents):
-                    constraints,append({'agent': agent, 'loc': [path[timestep + 1], path[timestpe]], 'timestep': timestep + 1})
-
-
-
-        # get a list of all lower priority agents
-        a_j = get_lower_priority_agents(node['priority_pairs'], i)
-
-        # for all lower priority agents
-        for j, node_j in enumerate(a_j):
-            # check if this agent collides with any higher priority agent
-            if collide_with_higher_priority_agents(node, j):
-                # replan the lower priority agent path
-                path_j = node_j['paths']
-                start_loc = get_location(path_j, 0)
-                goal_loc = get_location(path_j, len(path_j)-1)
-
-                path = a_star(self.my_map, start_loc, goal_loc, self.heuristics[j],
-                          j, constraints)
-
-                if path in None:
+                if path is None:
                     return False
+                else:
+                    if len(node['paths']) > a_j:
+                        node['paths'][a_j] = path
+                    else:
+                        node['paths'].append(path)
 
+        
         return True
+
 
     def find_solution(self):
         """ Finds paths for all agents from their start locations to their goal locations
@@ -189,17 +189,7 @@ class PBSSolver(object):
         #  there is not priority ordering here. Therefore always returns true
         for i in range(self.num_of_agents):
             self.update_plan(root, i)
-
-
-
-
-
-
-
-
-
-
-
+        
 
         root['cost'] = get_sum_of_cost(root['paths'])
         root['collisions'] = detect_collisions_among_all_paths(root['paths'])
@@ -207,6 +197,7 @@ class PBSSolver(object):
         ##############################
         # Task 4.2: Add root to search stack
         # TODO
+        self.push_node_to_stack(root)
 
         while len(self.search_stack) > 0:
 
@@ -214,7 +205,7 @@ class PBSSolver(object):
             # Task 4.2: Get next node from stack
             #     
             # TODO
-            next_node = None
+            next_node = self.pop_node_from_stack()
 
             # print expanded node info
             print("Expanded node cost: {} priority {} collisions {}".format(next_node['cost'],
@@ -244,6 +235,10 @@ class PBSSolver(object):
                 # - If priority pair already exists in parent node, skip this child
                 # - Else add priority pair to child priority pairs
                 # TODO
+                if priority_pair in child['priority_pairs']:
+                    continue
+                else:
+                    child['priority_pairs'].append(priority_pair)
 
                 ##############################
                 # Task 4.2:  Replan for all agents in topological order
@@ -257,6 +252,7 @@ class PBSSolver(object):
             ##############################
             # Task 4.2:  # Add nodes to stack from heap in non increasing order of cost
             # TODO
+                    self.push_node_to_stack(child)
 
         return None
 

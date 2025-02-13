@@ -104,13 +104,13 @@ def build_constraint_table(constraints, agent):
     #               for a more efficient constraint violation check in the 
     #               is_constrained function.
 
-    constraint_table = {}
+    constraint_table = [[]]
 
     for constraint in constraints:
         if constraint['agent'] == agent:
             time_step = constraint['timestep']
-            if time_step not in constraint_table:
-                constraint_table[time_step] = []
+            while len(constraint_table)<=time_step:
+                constraint_table.append([])
             constraint_table[time_step].append(constraint)
     
     return constraint_table
@@ -141,19 +141,25 @@ def is_constrained(curr_loc, next_loc, next_time, constraint_table):
     #               any given constraint. For efficiency the constraints are indexed in a constraint_table
     #               by time step, see build_constraint_table.
 
-    if next_time not in constraint_table:
-        return False
+    # if next_time not in constraint_table:
+    #     return False
     
-    for constraint in constraint_table[next_time]:
-        # vertex constraint - check if this agent is not allowed to be at this vertex at this time step
-        if len(constraint['loc']) == 1 and constraint['loc'][0] == next_loc:
-            # print("Vertex Constraint found: ", constraint)
-            return True
+    if next_time < len(constraint_table):
+        for constraint in constraint_table[next_time]:
+            # vertex constraint - check if this agent is not allowed to be at this vertex at this time step
+            # print(f"loc test_1: {constraint['loc']}") # [(1,5)]
+            # print(f"loc test_2: {constraint['loc'][0]}") # (1,5)
+            # print(f"next loc is: {next_loc}") # (2,3)
+            # print(f"len of constraints is: {len(constraint['loc'])}")
+            # print(" ")
+            if (len(constraint['loc']) == 1 and constraint['loc'][0] == next_loc) or (len(constraint['loc']) == 2 and constraint['loc'][0] == curr_loc and constraint['loc'][1] == next_loc):
+                # print("Vertex Constraint found: ", constraint)
+                return True
 
-        # edge constraint
-        if len(constraint['loc']) == 2 and constraint['loc'] == [curr_loc, next_loc]: # because we added a opposite constraint
-            # print("Edge Constraint found: ", constraint)
-            return True
+            # # edge constraint
+            # if len(constraint['loc']) == 2 and constraint['loc'][0] == curr_loc and constraint['loc'][1] == next_loc:
+            #     # print(f"Edge Constraint found: {constraint['loc']} {[curr_loc, next_loc]}")
+            #     return True
 
     return False
 
@@ -229,12 +235,10 @@ def a_star(my_map, start_loc, goal_loc, h_values, agent, constraints):
         #############################
         # Task 2.2: Adjust the goal test condition to handle goal constraints
         # TODO 
-        if curr['loc'] == goal_loc and curr['timestep'] >= earliest_goal_timestep and not future_constrained(goal_loc, curr['timestep'], constraint_table):
+        if curr['loc'] == goal_loc and not future_constrained(goal_loc, curr['timestep'], constraint_table):
 
             path_ = get_path(curr)
-        
             return path_
-
 
         for dir in range(5):
             child_loc = move(curr['loc'], dir)
@@ -250,14 +254,13 @@ def a_star(my_map, start_loc, goal_loc, h_values, agent, constraints):
                      'h_val': h_values[child_loc],
                      'parent': curr,
                      'timestep': curr['timestep'] + 1}
-            key = (child['loc'], child['timestep'])
-            if key in closed_list:
-                existing_node = closed_list[key]
+            if (child['loc'], child['timestep']) in closed_list:
+                existing_node = closed_list[(child['loc'], child['timestep'])]
                 if compare_nodes(child, existing_node):
-                    closed_list[key] = child
+                    closed_list[(child['loc'], child['timestep'])] = child
                     push_node(open_list, child)
             else:
-                closed_list[key] = child
+                closed_list[(child['loc'], child['timestep'])] = child
                 push_node(open_list, child)
         
     return None  # Failed to find solutions

@@ -14,23 +14,29 @@ def detect_first_collision_for_path_pair(path1, path2):
 
     # find the path with minimum length
     timesteps =  max(len(path1), len(path2))
-    for t in range(timesteps):
+    for t in range(timesteps-1):
         p1_loc = get_location(path1, t)
         p2_loc = get_location(path2, t)
-        # print(f"p1_loc is: {p1_loc}, p2_loc is: {p2_loc}")
+        p1_loc_next = get_location(path1, t+1)
+        p2_loc_next = get_location(path2, t+1)
+
+        # print(f"p1_loc: {p1_loc}")
+        # print(f"p2_loc: {p2_loc}")
+        # print(f"p1_loc_next: {p1_loc_next}")
+        # print(f"p2_loc_next: {p2_loc_next}")
+        # print(" ")
 
         # vertex collision
         if p1_loc == p2_loc:
-            # print(f"{p1_loc} and {p2_loc} are same")
-            return {'a1': 0, 'a2': 1, 'loc': [p1_loc], 'timestep': t}
+            # print(f"return collision: {{'loc': [p1_loc], 'timestep': t}}")
+            return {'loc': [p1_loc], 'timestep': t}
 
         # edge collision
-        if t + 1 < timesteps:
-            p1_loc_next = get_location(path1, t+1)
-            p2_loc_next = get_location(path2, t+1)
-            if [p1_loc, p1_loc_next] == [p2_loc_next, p2_loc]:
-                return {'a1': 0, 'a2': 1, 'loc': [p1_loc, p1_loc_next], 'timestep': t}
+        if p1_loc == p2_loc_next and p1_loc_next == p2_loc:
+            # print(f"returning collision: {{'loc': [p1_loc, p2_loc], 'timestep': t+1}}")
+            return {'loc': [p1_loc, p2_loc], 'timestep': t+1}
     
+    # print("No collisions found for these two agents")
     return None
             
 
@@ -43,16 +49,18 @@ def detect_collisions_among_all_paths(paths):
 
     collisions = []
 
-    for i in range(len(paths)):
-        for j in range(i+1, len(paths)):
-            print(f"finding collision for agents {i} and {j}")
-            print(f"Path for agent 1: {paths[i]}")
-            print(f"Path for agent 2: {paths[j]}")
+    # print(f"len of paths: {len(paths)}")
+
+    for i in range(len(paths)): # if length is 2 then it will loop from - 0, 1
+        for j in range(i+1, len(paths)): # it starts from i+1 till 1
+            coll_agents = {'a1': i, 'a2': j}
+            # print(f"finding collisions for agent {i} and {j}")
             collision = detect_first_collision_for_path_pair(paths[i], paths[j])
             if collision:
-                collision['a1'] = i
-                collision['a2'] = j
-                collisions.append(collision)
+                coll_agents.update(collision)
+                collisions.append(coll_agents)
+
+                # print(f"collisions: {coll_agents}")
     
     return collisions
 
@@ -159,6 +167,9 @@ class CBSSolver(object):
         for i in range(self.num_of_agents):  # Find initial path for each agent
             path = a_star(self.my_map, self.starts[i], self.goals[i], self.heuristics[i],
                           i, root['constraints'])
+
+            print(f"path for agent {i}: {path}")
+
             if path is None:
                 raise BaseException('No solutions')
             root['paths'].append(path)
@@ -168,11 +179,12 @@ class CBSSolver(object):
         self.push_node(root) # line 5
 
         # Task 2.1: Testing
-        print(f"root['collisions']: {root['collisions']}")
+        print(root['collisions'])
 
         # Task 2.2: Testing
         for collision in root['collisions']:
             print(standard_splitting(collision))
+
 
         ##############################
         # Task 2.3: High-Level Search
@@ -185,19 +197,23 @@ class CBSSolver(object):
 
         # These are just to print debug output - can be modified once you implement the high-level search
 
-        while len(self.open_list) > 0:
+        while self.open_list:
             node_p = self.pop_node()
+
             if len(node_p['collisions']) == 0:
                 print("no collisions found, therefore goal node")
-                self.print_results(node_p)
+                # self.print_results(node_p)
                 return node_p['paths']
             
             # pick one collision from collisions
             collision_ = node_p['collisions'][0]
+            
             # convert it into constraints
             constraints_ = standard_splitting(collision_)
+
             # Add a new child node to your open list for each constraint (total = 2)
             for constraint in constraints_:
+                
                 # create a copy of node p
                 node_q = copy.deepcopy(node_p)
                 # append the new constraints to the new node
@@ -205,20 +221,32 @@ class CBSSolver(object):
 
                 # the agent in constraint
                 a_i = constraint['agent']
+                # print(f"agent: {a_i}")
                 # replan the path
                 path_ = a_star(self.my_map, self.starts[a_i], self.goals[a_i], self.heuristics[a_i],
                           a_i, node_q['constraints'])
-                if path_ is not None:
-                    # replace the path od agent a_i in node_q's plan by path
-                    node_q['paths'][a_i] = path_
-                    node_q['cost'] = get_sum_of_cost(node_q['paths'])
-                    node_q['collisions'] = detect_collisions_among_all_paths(node_q['paths'])
-                    self.push_node(node_q)
+                
+                # print(f"path_: {path_}")
+                
+
+                if path_ is None:
+                    continue
+
+                # replace the path od agent a_i in node_q's plan by path
+                node_q['paths'][a_i] = path_
+                node_q['cost'] = get_sum_of_cost(node_q['paths'])
+                node_q['collisions'] = detect_collisions_among_all_paths(node_q['paths'])
+
+                # print(f"new node_q: {node_q}")
+
+                self.push_node(node_q)
+            
+            # exit()
+
+    
+        # self.print_results(root)
+        return root['paths']
         
-        print("No solution found")
-        return None
-
-
 
     def print_results(self, node):
         print("\n Found a solution! \n")
