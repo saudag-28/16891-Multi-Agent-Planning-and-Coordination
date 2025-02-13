@@ -150,16 +150,10 @@ def is_constrained(curr_loc, next_loc, next_time, constraint_table):
             # print(f"loc test_1: {constraint['loc']}") # [(1,5)]
             # print(f"loc test_2: {constraint['loc'][0]}") # (1,5)
             # print(f"next loc is: {next_loc}") # (2,3)
-            # print(f"len of constraints is: {len(constraint['loc'])}")
-            # print(" ")
+
             if (len(constraint['loc']) == 1 and constraint['loc'][0] == next_loc) or (len(constraint['loc']) == 2 and constraint['loc'][0] == curr_loc and constraint['loc'][1] == next_loc):
                 # print("Vertex Constraint found: ", constraint)
                 return True
-
-            # # edge constraint
-            # if len(constraint['loc']) == 2 and constraint['loc'][0] == curr_loc and constraint['loc'][1] == next_loc:
-            #     # print(f"Edge Constraint found: {constraint['loc']} {[curr_loc, next_loc]}")
-            #     return True
 
     return False
 
@@ -201,7 +195,7 @@ def future_constrained(goal_loc, curr_time, constraint_table):
         # for all constraints at this time step
         for constraint in constraint_table[t]:
             if goal_loc == constraint['loc'][0]:
-                print("Continue searching the path")
+                # print("Continue searching the path")
                 return True
     
     return False

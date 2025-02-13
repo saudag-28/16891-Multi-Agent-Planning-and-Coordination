@@ -132,6 +132,8 @@ class CBSSolver(object):
 
         self.open_list = []
 
+        self.counter = 0
+
         # compute heuristics for the low-level search
         self.heuristics = []
         for goal in self.goals:
@@ -198,7 +200,13 @@ class CBSSolver(object):
         # These are just to print debug output - can be modified once you implement the high-level search
 
         while self.open_list:
+
             node_p = self.pop_node()
+
+            if self.counter >= 500:
+                print("Counter exceeded 500")
+                self.print_results(node_p)
+                break
 
             if len(node_p['collisions']) == 0:
                 print("no collisions found, therefore goal node")
@@ -223,10 +231,11 @@ class CBSSolver(object):
                 a_i = constraint['agent']
                 # print(f"agent: {a_i}")
                 # replan the path
+
                 path_ = a_star(self.my_map, self.starts[a_i], self.goals[a_i], self.heuristics[a_i],
                           a_i, node_q['constraints'])
                 
-                # print(f"path_: {path_}")
+                self.counter += 1
                 
 
                 if path_ is None:

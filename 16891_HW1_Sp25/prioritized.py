@@ -24,6 +24,7 @@ class PrioritizedPlanningSolver(object):
             self.heuristics.append(compute_heuristics(my_map, goal))
 
         self.time_horizon = sum(cell is False for row in self.my_map for cell in row)
+        self.counter = 0
 
     def find_solution(self):
         """ Finds paths for all agents from their start locations to their goal locations."""
@@ -33,11 +34,18 @@ class PrioritizedPlanningSolver(object):
         # constraints = [{'agent': 1, 'loc': [(1,2),(1,3)], 'timestep': 1}]
         constraints = []
 
-        
-
+    
         for i in range(self.num_of_agents):  # Find path for each agent
+
+            if self.counter >= 500:
+                print("exceeded")
+                break
+
             path = a_star(self.my_map, self.starts[i], self.goals[i], self.heuristics[i],
                           i, constraints)
+
+            self.counter += 1
+
             if path is None:
                 raise BaseException('No solutions')
             
@@ -59,22 +67,16 @@ class PrioritizedPlanningSolver(object):
             # timestep at goal for higher priority agent
             goal_t = len(path)-1
 
-            # vertex constraints
-            for timestep, loc in enumerate(path):
-                for agent in range(i + 1, self.num_of_agents):
-                    constraints.append({'agent': agent, 'loc': [loc], 'timestep': timestep})
-
-                    # addition constraints for lower priority agents for when higher priority agents have their goals in the way of lower priority agents
-                    for t in range(goal_t, self.time_horizon*2):
-                        constraints.append({'agent': agent, 'loc': [self.goals[i]], 'timestep': t})
-            
-            # edge constraints
-            for timestep in range(len(path) - 1):
-                for agent in range(i + 1, self.num_of_agents):
+            for agent in range(i+1, self.num_of_agents):
+                for timestep in range(len(path) - 1):
+                    constraints.append({'agent': agent, 'loc': [path[timestep]], 'timestep': timestep})
                     constraints.append({'agent': agent, 'loc': [path[timestep + 1], path[timestep]], 'timestep': timestep + 1})
-
+                for t in range(goal_t, self.time_horizon*2):
+                    constraints.append({'agent': agent, 'loc': [self.goals[i]], 'timestep': t})
+            
 
         self.CPU_time = timer.time() - start_time
+        
 
         print("\n Found a solution! \n")
         print("CPU time (s):    {:.2f}".format(self.CPU_time))

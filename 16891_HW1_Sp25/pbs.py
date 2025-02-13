@@ -89,6 +89,7 @@ class PBSSolver(object):
         self.CPU_time = 0
         self.search_stack = deque()
         self.time_horizon = sum(cell is False for row in self.my_map for cell in row)
+        self.counter = 0
 
         # compute heuristics for the low-level search
         self.heuristics = []
@@ -125,29 +126,33 @@ class PBSSolver(object):
         if i in higher_priority_a_ks:
             higher_priority_a_ks.remove(i)
 
-        # convert paths of these agents into constraints for a_j
         constraints = []
-        # loop through all the higher priority agents
+        # convert paths of these agents into constraints for a_j
         for a_k in higher_priority_a_ks:
             # get path for this agent
             path_a_k = node['paths'][a_k]
 
+            goal_t = len(path_a_k)-1
+
             for a_j in lower_priority_a_js:
                 # vertex and edge constraints
-               for timestep in range(len(path_a_k) - 1):
+                for timestep in range(len(path_a_k) - 1):
+                    loc = path_a_k[timestep+1]
                     constraints.append({'agent': a_j, 'loc': [path_a_k[timestep]], 'timestep': timestep})
                     constraints.append({'agent': a_j, 'loc': [path_a_k[timestep + 1], path_a_k[timestep]], 'timestep': timestep + 1})
-                # TODO
-                # add additional constraints
-                    
+                for t in range(goal_t, self.time_horizon*2):
+                    constraints.append({'agent': a_j, 'loc': [self.goals[a_k]], 'timestep': t})
+    
         # Line 23: for each lower priority agent
-        for a_j in lower_priority_a_js:
+        for index, a_j in enumerate(lower_priority_a_js):
             
             # Lines 24-25: check if this lower priority agent collides with any higher priority agent
             if a_j==i or collide_with_higher_priority_agents(node, a_j):
         
                 # call a-star to update a_j's path
                 path = a_star(self.my_map, self.starts[a_j], self.goals[a_j], self.heuristics[a_j], a_j, constraints)
+
+                self.counter += 1
 
                 if path is None:
                     return False
@@ -156,8 +161,8 @@ class PBSSolver(object):
                         node['paths'][a_j] = path
                     else:
                         node['paths'].append(path)
+            
 
-        
         return True
 
 
@@ -180,7 +185,7 @@ class PBSSolver(object):
         #
         # TODO      
         root = {'priority_pairs': [],
-                'paths': [],
+                'paths': [[]],
                 'collisions': [],
                 'cost': 0}
 
@@ -206,6 +211,11 @@ class PBSSolver(object):
             #     
             # TODO
             next_node = self.pop_node_from_stack()
+
+            if self.counter >= 500:
+                print("counter exceeded")
+                self.print_results(next_node)
+                break
 
             # print expanded node info
             print("Expanded node cost: {} priority {} collisions {}".format(next_node['cost'],
